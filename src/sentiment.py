@@ -2,10 +2,36 @@ import re
 import xml.etree.ElementTree as ET
 import requests
 
-_POSITIVE = {"alta", "sobe", "lucro", "recorde", "compra", "crescimento", "supera", "alta",
-             "buy", "surge", "profit", "record", "growth", "beats", "upgrade", "bullish", "rally"}
-_NEGATIVE = {"queda", "cai", "prejuízo", "venda", "risco", "corte", "perde",
-             "sell", "drop", "loss", "risk", "cut", "downgrade", "bearish", "crash", "fear"}
+_POSITIVE = {
+    # PT
+    "alta", "sobe", "subiu", "lucro", "recorde", "compra", "crescimento", "supera",
+    "valoriza", "ganho", "positivo", "recupera", "forte",
+    # EN
+    "buy", "surge", "surges", "profit", "record", "growth", "beats", "upgrade",
+    "bullish", "rally", "rises", "gains", "strong", "outperform", "higher", "up",
+}
+_NEGATIVE = {
+    # PT
+    "queda", "cai", "caiu", "prejuízo", "venda", "risco", "corte", "perde",
+    "desvaloriza", "fraco", "negativo", "colapso",
+    # EN
+    "sell", "drop", "drops", "loss", "risk", "cut", "downgrade", "bearish",
+    "crash", "fear", "falls", "lower", "down", "weak", "underperform", "decline",
+}
+
+_TRANSLATE = {
+    "bullish": "alta", "bearish": "baixa", "neutral": "neutro",
+    "buy": "compra", "sell": "venda", "upgrade": "upgrade", "downgrade": "downgrade",
+    "surge": "disparou", "drop": "caiu", "rally": "rali", "crash": "colapso",
+    "record": "recorde", "profit": "lucro", "loss": "prejuízo",
+    "growth": "crescimento", "risk": "risco", "strong": "forte", "weak": "fraco",
+}
+
+
+def _translate(text: str) -> str:
+    for en, pt in _TRANSLATE.items():
+        text = re.sub(rf'\b{en}\b', pt, text, flags=re.IGNORECASE)
+    return text
 
 
 def _score_text(text: str) -> float:
@@ -32,20 +58,20 @@ def fetch_sentiment(ticker: str) -> dict:
                 desc  = item.findtext("description", "")
                 s = _score_text(title + " " + desc)
                 scores.append(s)
-                if title and abs(s) > 0.1:   # só manchetes com sinal claro
-                    headlines.append((abs(s), title))
+                if title and abs(s) >= 0.05:
+                    headlines.append((abs(s), _translate(title)))
         except Exception:
             continue
 
     avg = sum(scores) / len(scores) if scores else 0.0
-    direction = "bullish" if avg > 0.1 else "bearish" if avg < -0.1 else "neutral"
+    # threshold reduzido: 0.05 em vez de 0.1
+    direction = "bullish" if avg > 0.05 else "bearish" if avg < -0.05 else "neutral"
 
-    # Top 3 manchetes mais relevantes
     top = [t for _, t in sorted(headlines, reverse=True)[:3]]
 
     return {
         "score": round(avg, 3),
         "articles": len(scores),
         "direction": direction,
-        "headlines": top if direction != "neutral" else [],  # só envia se relevante
+        "headlines": top if direction != "neutral" else [],
     }
