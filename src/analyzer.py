@@ -9,11 +9,12 @@ from .signal_generator import generate
 from .notifier import send_telegram
 from . import database as db
 
+db.init_db()  # garante tabela criada antes do primeiro uso
+
 
 def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify: bool = True) -> dict:
     df = fetch(ticker, period=period, interval=interval)
 
-    # Análises paralelas (independentes)
     liq = LiquidityEngine(df)
     liq_report = liq.report()
     liq_report["structure"] = liq.market_structure()
@@ -28,7 +29,6 @@ def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify: bool
 
     sig = generate(ticker, liq_report, vp, df_vwap, df_pa, fc, mtf, sentiment)
 
-    # Fallback targets via ATR
     if not sig.target1 and atr:
         sig.target1 = atr.get("target_long") if sig.signal == "COMPRA" else atr.get("target_short")
     if not sig.stop and atr:
