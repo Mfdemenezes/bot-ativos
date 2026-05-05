@@ -85,7 +85,12 @@ def _format(sig, fib, vp, fc) -> str:
         lines.append(f"  P10: {fc.get('p10',0):.4f}  P50: {fc.get('p50',0):.4f}  P90: {fc.get('p90',0):.4f}")
 
     sent = sig.sentiment
-    lines.append(f"\n📰 Sentimento: {sent.get('direction','—')} ({sent.get('articles',0)} notícias)")
+    direction = sent.get("direction", "neutral")
+    if direction != "neutral":
+        d_e = "📈" if direction == "bullish" else "📉"
+        lines.append(f"\n{d_e} *Notícias ({direction}):*")
+        for h in sent.get("headlines", []):
+            lines.append(f"  • {h}")
 
     lines.append("\n📋 *Razões:*")
     lines += [f"  {r}" for r in sig.reasons]
