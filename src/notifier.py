@@ -8,11 +8,14 @@ _WA_NUMBER    = os.getenv("WA_NUMBER", "5521960192189")
 
 
 def send_whatsapp(text: str) -> bool:
-    resp = requests.post(
-        f"{_EVO_URL}/message/sendText/{_EVO_INSTANCE}",
-        json={"number": _WA_NUMBER, "text": text},
-        headers={"apikey": _EVO_APIKEY}, timeout=10)
-    return resp.ok
+    try:
+        resp = requests.post(
+            f"{_EVO_URL}/message/sendText/{_EVO_INSTANCE}",
+            json={"number": _WA_NUMBER, "text": text},
+            headers={"apikey": _EVO_APIKEY}, timeout=30)
+        return resp.ok
+    except Exception:
+        return False
 
 
 def notify(sig, fib=None, vp=None, fc=None, context=None) -> bool:
@@ -21,8 +24,12 @@ def notify(sig, fib=None, vp=None, fc=None, context=None) -> bool:
     if not ok:
         token, chat_id = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
         if token and chat_id:
-            requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                          json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=10)
+            try:
+                requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                              json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+                              timeout=15)
+            except Exception:
+                pass
     return ok
 
 
@@ -46,7 +53,7 @@ def _format(sig, fib, vp, fc, context) -> str:
             e = "✅" if v == "COMPRA" else "🔴" if v == "VENDA" else "➖"
             lines.append(f"  {e} {tf}: {v}")
 
-    # Contexto macro (Nasdaq/correlatos)
+    # Contexto macro
     if context and context.get("assets"):
         lines.append("\n🌐 *Contexto Macro:*")
         macro_e = "📈" if context["macro_bias"] == "ALTA" else "📉" if context["macro_bias"] == "BAIXA" else "↔️"
@@ -54,7 +61,7 @@ def _format(sig, fib, vp, fc, context) -> str:
         for a in context["assets"]:
             if a.get("bias") == "ERRO": continue
             ae = "✅" if a["bias"] == "ALTA" else "🔴" if a["bias"] == "BAIXA" else "➖"
-            lines.append(f"  {ae} {a['ticker']}: {a['price']:.2f}  ret5d: {a.get('ret_5d',0):+.1f}%  RSI: {a.get('rsi',0):.0f}")
+            lines.append(f"  {ae} {a['ticker']}: {a['price']:.2f}  {a.get('ret_5d',0):+.1f}%  RSI:{a.get('rsi',0):.0f}")
 
     # Entrada / Saída
     lines.append("\n🎯 *Entrada / Saída:*")
@@ -67,18 +74,18 @@ def _format(sig, fib, vp, fc, context) -> str:
         lines.append("\n📐 *Fibonacci:*")
         lines.append(f"  Topo: {fib['high']:.4f}  Fundo: {fib['low']:.4f}")
         ret = fib["retracements"]
-        for label, key in [("23%","23%"),("38%","38%"),("50%","50%"),("61%","61%"),("78%","78%")]:
-            val = ret.get(key)
+        for label in ["23%", "38%", "50%", "61%", "78%"]:
+            val = ret.get(label)
             if val:
                 marker = " ◀ preço" if abs(val - sig.price) / sig.price < 0.006 else ""
                 lines.append(f"  {label}: {val:.4f}{marker}")
-        ext = fib["extensions"]
-        lines.append(f"  Ext 127%: {list(ext.values())[0]:.4f}")
-        lines.append(f"  Ext 161%: {list(ext.values())[2]:.4f}")
+        ext = list(fib["extensions"].values())
+        if len(ext) >= 3:
+            lines.append(f"  Ext 127%: {ext[0]:.4f}  Ext 161%: {ext[2]:.4f}")
         if fib.get("support"):
-            lines.append(f"  🟩 Suporte: {fib['support'][0]} → {fib['support'][1]:.4f}")
+            lines.append(f"  🟩 Suporte fibo: {fib['support'][0]} → {fib['support'][1]:.4f}")
         if fib.get("resistance"):
-            lines.append(f"  🟥 Resistência: {fib['resistance'][0]} → {fib['resistance'][1]:.4f}")
+            lines.append(f"  🟥 Resist. fibo: {fib['resistance'][0]} → {fib['resistance'][1]:.4f}")
 
     # Volume Profile
     if vp:
