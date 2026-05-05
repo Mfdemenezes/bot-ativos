@@ -38,7 +38,7 @@ def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify_: boo
 
     db.save_signal(sig)
 
-    if notify_ and sig.signal != "AGUARDAR":
+    if notify_:
         notify(sig, fib=fib, vp=vp, fc=fc)
 
     return {
