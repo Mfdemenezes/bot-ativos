@@ -6,6 +6,7 @@ from .ai_forecast import forecast as ai_forecast
 from .multi_timeframe import analyze as mtf_analyze
 from .sentiment import fetch_sentiment
 from .fibonacci import compute as fib_compute
+from .market_context import get_context
 from .signal_generator import generate
 from .notifier import notify
 from . import database as db
@@ -28,8 +29,9 @@ def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify_: boo
     mtf       = mtf_analyze(ticker)
     sentiment = fetch_sentiment(ticker)
     fib       = fib_compute(df)
+    context   = get_context(ticker)
 
-    sig = generate(ticker, liq_report, vp, df_vwap, df_pa, fc, mtf, sentiment)
+    sig = generate(ticker, liq_report, vp, df_vwap, df_pa, fc, mtf, sentiment, context)
 
     if not sig.target1 and atr:
         sig.target1 = atr.get("target_long") if sig.signal == "COMPRA" else atr.get("target_short")
@@ -39,13 +41,13 @@ def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify_: boo
     db.save_signal(sig)
 
     if notify_:
-        notify(sig, fib=fib, vp=vp, fc=fc)
+        notify(sig, fib=fib, vp=vp, fc=fc, context=context)
 
     return {
         "ticker": sig.ticker, "price": sig.price, "signal": sig.signal,
         "confidence": sig.confidence, "target1": sig.target1, "target2": sig.target2,
         "stop": sig.stop, "rr": sig.rr, "structure": sig.structure, "bias": sig.bias,
         "reasons": sig.reasons, "forecast": fc, "mtf": sig.mtf,
-        "sentiment": sig.sentiment, "fib": fib,
+        "sentiment": sig.sentiment, "fib": fib, "context": context,
         "poc": vp["poc"], "vah": vp["vah"], "val": vp["val"],
     }
