@@ -6,25 +6,25 @@ from .ai_forecast import forecast as ai_forecast
 from .multi_timeframe import analyze as mtf_analyze
 from .sentiment import fetch_sentiment
 from .signal_generator import generate
-from .notifier import send_telegram
+from .notifier import notify
 from . import database as db
 
-db.init_db()  # garante tabela criada antes do primeiro uso
+db.init_db()
 
 
-def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify: bool = True) -> dict:
+def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify_: bool = True) -> dict:
     df = fetch(ticker, period=period, interval=interval)
 
     liq = LiquidityEngine(df)
     liq_report = liq.report()
     liq_report["structure"] = liq.market_structure()
 
-    vp       = vp_compute(df)
-    df_vwap  = vwap_bands(df)
-    df_pa    = indicators(df)
-    atr      = atr_targets(df_pa)
-    fc       = ai_forecast(df)
-    mtf      = mtf_analyze(ticker)
+    vp        = vp_compute(df)
+    df_vwap   = vwap_bands(df)
+    df_pa     = indicators(df)
+    atr       = atr_targets(df_pa)
+    fc        = ai_forecast(df)
+    mtf       = mtf_analyze(ticker)
     sentiment = fetch_sentiment(ticker)
 
     sig = generate(ticker, liq_report, vp, df_vwap, df_pa, fc, mtf, sentiment)
@@ -36,25 +36,13 @@ def analyze(ticker: str, period: str = "6mo", interval: str = "1d", notify: bool
 
     db.save_signal(sig)
 
-    if notify and sig.signal != "AGUARDAR":
-        send_telegram(sig)
+    if notify_ and sig.signal != "AGUARDAR":
+        notify(sig)
 
     return {
-        "ticker": sig.ticker,
-        "price": sig.price,
-        "signal": sig.signal,
-        "confidence": sig.confidence,
-        "target1": sig.target1,
-        "target2": sig.target2,
-        "stop": sig.stop,
-        "rr": sig.rr,
-        "structure": sig.structure,
-        "bias": sig.bias,
-        "reasons": sig.reasons,
-        "forecast": sig.forecast,
-        "mtf": sig.mtf,
-        "sentiment": sig.sentiment,
-        "poc": vp["poc"],
-        "vah": vp["vah"],
-        "val": vp["val"],
+        "ticker": sig.ticker, "price": sig.price, "signal": sig.signal,
+        "confidence": sig.confidence, "target1": sig.target1, "target2": sig.target2,
+        "stop": sig.stop, "rr": sig.rr, "structure": sig.structure, "bias": sig.bias,
+        "reasons": sig.reasons, "forecast": sig.forecast, "mtf": sig.mtf,
+        "sentiment": sig.sentiment, "poc": vp["poc"], "vah": vp["vah"], "val": vp["val"],
     }
