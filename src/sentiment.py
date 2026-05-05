@@ -3,35 +3,25 @@ import xml.etree.ElementTree as ET
 import requests
 
 _POSITIVE = {
-    # PT
     "alta", "sobe", "subiu", "lucro", "recorde", "compra", "crescimento", "supera",
     "valoriza", "ganho", "positivo", "recupera", "forte",
-    # EN
     "buy", "surge", "surges", "profit", "record", "growth", "beats", "upgrade",
     "bullish", "rally", "rises", "gains", "strong", "outperform", "higher", "up",
 }
 _NEGATIVE = {
-    # PT
     "queda", "cai", "caiu", "prejuízo", "venda", "risco", "corte", "perde",
     "desvaloriza", "fraco", "negativo", "colapso",
-    # EN
     "sell", "drop", "drops", "loss", "risk", "cut", "downgrade", "bearish",
     "crash", "fear", "falls", "lower", "down", "weak", "underperform", "decline",
 }
 
-_TRANSLATE = {
-    "bullish": "alta", "bearish": "baixa", "neutral": "neutro",
-    "buy": "compra", "sell": "venda", "upgrade": "upgrade", "downgrade": "downgrade",
-    "surge": "disparou", "drop": "caiu", "rally": "rali", "crash": "colapso",
-    "record": "recorde", "profit": "lucro", "loss": "prejuízo",
-    "growth": "crescimento", "risk": "risco", "strong": "forte", "weak": "fraco",
-}
-
 
 def _translate(text: str) -> str:
-    for en, pt in _TRANSLATE.items():
-        text = re.sub(rf'\b{en}\b', pt, text, flags=re.IGNORECASE)
-    return text
+    try:
+        from deep_translator import GoogleTranslator
+        return GoogleTranslator(source="auto", target="pt").translate(text)
+    except Exception:
+        return text
 
 
 def _score_text(text: str) -> float:
@@ -59,15 +49,16 @@ def fetch_sentiment(ticker: str) -> dict:
                 s = _score_text(title + " " + desc)
                 scores.append(s)
                 if title and abs(s) >= 0.05:
-                    headlines.append((abs(s), _translate(title)))
+                    headlines.append((abs(s), title))
         except Exception:
             continue
 
     avg = sum(scores) / len(scores) if scores else 0.0
-    # threshold reduzido: 0.05 em vez de 0.1
     direction = "bullish" if avg > 0.05 else "bearish" if avg < -0.05 else "neutral"
 
-    top = [t for _, t in sorted(headlines, reverse=True)[:3]]
+    # Traduz as 3 manchetes mais relevantes
+    top_raw = [t for _, t in sorted(headlines, reverse=True)[:3]]
+    top = [_translate(t) for t in top_raw]
 
     return {
         "score": round(avg, 3),
