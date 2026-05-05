@@ -69,7 +69,7 @@ def monitor_loop():
                 except Exception as e:
                     logging.error(f"{ticker}: {e}")
 
-        time.sleep(300)  # 5 minutos
+        time.sleep(1800)  # 30 minutos
 
 
 if __name__ == "__main__":
