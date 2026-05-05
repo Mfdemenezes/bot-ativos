@@ -19,7 +19,7 @@ def send_whatsapp(text: str) -> bool:
 
 
 def notify(sig, fib=None, vp=None, fc=None, context=None) -> bool:
-    text = _format(sig, fib, vp, fc, context)
+    text = _format(sig, fib, vp, fc)
     ok = send_whatsapp(text)
     if not ok:
         token, chat_id = os.getenv("TELEGRAM_BOT_TOKEN"), os.getenv("TELEGRAM_CHAT_ID")
@@ -33,9 +33,10 @@ def notify(sig, fib=None, vp=None, fc=None, context=None) -> bool:
     return ok
 
 
-def _format(sig, fib, vp, fc, context) -> str:
+def _format(sig, fib, vp, fc) -> str:
     emoji = {"COMPRA": "🟢 COMPRA", "VENDA": "🔴 VENDA", "AGUARDAR": "🟡 AGUARDAR"}.get(sig.signal, sig.signal)
     rr_str = f"1:{sig.rr}" if sig.rr else "—"
+    mtf = sig.mtf.get("timeframes", {})
 
     lines = [
         f"{'─'*28}",
@@ -45,31 +46,17 @@ def _format(sig, fib, vp, fc, context) -> str:
         f"📊 Estrutura: {sig.structure}  |  Bias: {sig.bias}",
     ]
 
-    # Multi-timeframe
-    mtf = sig.mtf.get("timeframes", {})
     if mtf:
         lines.append("\n⏱ *Timeframes:*")
         for tf, v in mtf.items():
             e = "✅" if v == "COMPRA" else "🔴" if v == "VENDA" else "➖"
             lines.append(f"  {e} {tf}: {v}")
 
-    # Contexto macro
-    if context and context.get("assets"):
-        lines.append("\n🌐 *Contexto Macro:*")
-        macro_e = "📈" if context["macro_bias"] == "ALTA" else "📉" if context["macro_bias"] == "BAIXA" else "↔️"
-        lines.append(f"  {macro_e} Bias geral: *{context['macro_bias']}*")
-        for a in context["assets"]:
-            if a.get("bias") == "ERRO": continue
-            ae = "✅" if a["bias"] == "ALTA" else "🔴" if a["bias"] == "BAIXA" else "➖"
-            lines.append(f"  {ae} {a['ticker']}: {a['price']:.2f}  {a.get('ret_5d',0):+.1f}%  RSI:{a.get('rsi',0):.0f}")
-
-    # Entrada / Saída
     lines.append("\n🎯 *Entrada / Saída:*")
     if sig.target1: lines.append(f"  T1: {sig.target1:.4f}")
     if sig.target2: lines.append(f"  T2: {sig.target2:.4f}")
     if sig.stop:    lines.append(f"  Stop: {sig.stop:.4f}  (R:R {rr_str})")
 
-    # Fibonacci
     if fib:
         lines.append("\n📐 *Fibonacci:*")
         lines.append(f"  Topo: {fib['high']:.4f}  Fundo: {fib['low']:.4f}")
@@ -83,27 +70,23 @@ def _format(sig, fib, vp, fc, context) -> str:
         if len(ext) >= 3:
             lines.append(f"  Ext 127%: {ext[0]:.4f}  Ext 161%: {ext[2]:.4f}")
         if fib.get("support"):
-            lines.append(f"  🟩 Suporte fibo: {fib['support'][0]} → {fib['support'][1]:.4f}")
+            lines.append(f"  🟩 Suporte: {fib['support'][0]} → {fib['support'][1]:.4f}")
         if fib.get("resistance"):
-            lines.append(f"  🟥 Resist. fibo: {fib['resistance'][0]} → {fib['resistance'][1]:.4f}")
+            lines.append(f"  🟥 Resistência: {fib['resistance'][0]} → {fib['resistance'][1]:.4f}")
 
-    # Volume Profile
     if vp:
         lines.append("\n📦 *Volume Profile:*")
         lines.append(f"  POC: {vp['poc']:.4f}  VAH: {vp['vah']:.4f}  VAL: {vp['val']:.4f}")
 
-    # Projeção AI
     if fc:
         d_e = "📈" if fc.get("direction") == "ALTA" else "📉"
         lines.append(f"\n🤖 *Projeção ({fc.get('source','')}):*")
         lines.append(f"  {d_e} {fc.get('direction')}  conf: {fc.get('confidence',0):.0%}")
         lines.append(f"  P10: {fc.get('p10',0):.4f}  P50: {fc.get('p50',0):.4f}  P90: {fc.get('p90',0):.4f}")
 
-    # Sentimento
     sent = sig.sentiment
     lines.append(f"\n📰 Sentimento: {sent.get('direction','—')} ({sent.get('articles',0)} notícias)")
 
-    # Razões
     lines.append("\n📋 *Razões:*")
     lines += [f"  {r}" for r in sig.reasons]
     lines.append(f"{'─'*28}")
